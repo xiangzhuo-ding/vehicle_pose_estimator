@@ -20,3 +20,17 @@
 What is negative mining techniques?
 What is upsampleing?
 
+libornovax master thesis code summary 
+
+Input 
+a) dimension are kept to 128X256 in order to proccess image in one 
+batch
+b) image pixels are converted to [-1, 1] from [0, 255]
+        (v-128)/128
+
+Generate the center of where the car lies.
+When training we need to convert the bounding boxes so that each scale 
+has the same amount of the training data.
+Use a dilated convolution instead of adding extra pooling layer and 
+deconvolving.
+
