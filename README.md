@@ -34,3 +34,7 @@ has the same amount of the training data.
 Use a dilated convolution instead of adding extra pooling layer and 
 deconvolving.
 
+
+Complext Yolo - need point clouds
+
+Densebox and Yolo does not exactly converts a image to a 3D space. 
