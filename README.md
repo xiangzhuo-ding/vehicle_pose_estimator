@@ -38,3 +38,10 @@ deconvolving.
 Complext Yolo - need point clouds
 
 Densebox and Yolo does not exactly converts a image to a 3D space. 
+
+BirdGAN - Using prexisted point cloud to generate a 3D point of view. 
+
+pitch is from -pi, 0, pi
+roll is taking mostly from -pi or pi
+
+
