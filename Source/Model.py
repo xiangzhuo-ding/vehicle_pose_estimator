@@ -1,4 +1,5 @@
 from efficientnet_pytorch import EfficientNet
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -7,6 +8,9 @@ from torch.optim import lr_scheduler
 from torch.utils.data import Dataset, DataLoader
 from torchvision import models
 from torchvision import transforms, utils
+
+from Utils import *
+from ImgPreprocess import *
 
 
 class double_conv(nn.Module):
@@ -61,10 +65,11 @@ class up(nn.Module):
         return x
 
 def get_mesh(batch_size, shape_x, shape_y):
+    # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     mg_x, mg_y = np.meshgrid(np.linspace(0, 1, shape_y), np.linspace(0, 1, shape_x))
     mg_x = np.tile(mg_x[None, None, :, :], [batch_size, 1, 1, 1]).astype('float32')
     mg_y = np.tile(mg_y[None, None, :, :], [batch_size, 1, 1, 1]).astype('float32')
-    mesh = torch.cat([torch.tensor(mg_x).to(device), torch.tensor(mg_y).to(device)], 1)
+    mesh = torch.cat([torch.tensor(mg_x).cuda(), torch.tensor(mg_y).cuda()], 1)
     return mesh
 
 
@@ -85,6 +90,7 @@ class MyUNet(nn.Module):
         self.up1 = up(1282 + 1024, 512)
         self.up2 = up(512 + 512, 256)
         self.outc = nn.Conv2d(256, n_classes, 1)
+        # self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     def forward(self, x):
         batch_size = x.shape[0]
@@ -94,10 +100,11 @@ class MyUNet(nn.Module):
         x2 = self.mp(self.conv1(x1))
         x3 = self.mp(self.conv2(x2))
         x4 = self.mp(self.conv3(x3))
-        
+        IMG_WIDTH = 1024
+        IMG_HEIGHT = IMG_WIDTH // 16 * 5
         x_center = x[:, :, :, IMG_WIDTH // 8: -IMG_WIDTH // 8]
         feats = self.base_model.extract_features(x_center)
-        bg = torch.zeros([feats.shape[0], feats.shape[1], feats.shape[2], feats.shape[3] // 8]).to(device)
+        bg = torch.zeros([feats.shape[0], feats.shape[1], feats.shape[2], feats.shape[3] // 8]).cuda()
         feats = torch.cat([bg, feats, bg], 3)
         
         # Add positional info
