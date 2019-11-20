@@ -1,5 +1,9 @@
 # folder
 data/
+.vscode/
+__pycache__/
 
 # file
 .pyc
+
+

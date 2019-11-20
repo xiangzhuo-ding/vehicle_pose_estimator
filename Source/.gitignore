@@ -1,0 +1,12 @@
+# folder
+data/
+
+# file
+.pyc
+
+.vscode/
+.DS_Store
+
+*__pycache__/
+
+*.mp4
