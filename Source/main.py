@@ -8,7 +8,7 @@ from torch.optim import lr_scheduler
 
 def main(args):
     data = load_data()
-    train_loader, dev_loader, test_loader = data.get_baseline()
+    train_loader, dev_loader, test_loader = data.get_baseline(b_size=args.batch_size)
 
     if args.load_model:
         print("Loading model: " +  args.model_name)
@@ -47,7 +47,9 @@ parser.add_argument('--load-model', action='store_true', default=False,
 parser.add_argument('--model-name', type=str, default='',
                     help='load model name') 
 parser.add_argument('--start-epoch', type=float, default=0, metavar='SP',
-                    help='starting epoch (default: 0)')                  
+                    help='starting epoch (default: 0)') 
+parser.add_argument('--batch-size', type=float, default=4, metavar='SP',
+                    help='batch size (default: 4)')                  
 
 args = parser.parse_args()
 args.cuda = not args.no_cuda and torch.cuda.is_available()
