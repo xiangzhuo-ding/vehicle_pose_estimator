@@ -10,11 +10,15 @@ def main(args):
     data = load_data()
     train_loader, dev_loader, test_loader = data.get_baseline()
 
+    if args.load_model:
+        print("Loading model: " +  args.model_name)
+        model_path = args.model_path.format(args.model_name)
+        model = MyUNet(8, args)
+        model.load_state_dict(torch.load(model_path))
+
     if args.cuda:
         print('\nGPU is ON!')
-        model = MyUNet(8, args).cuda()
-    else:
-        model = MyUNet(8, args)
+        model = model.cuda()
     
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
     exp_lr_scheduler = lr_scheduler.StepLR(optimizer, 
@@ -38,7 +42,13 @@ parser.add_argument('--model-path', type=str, default='./save_models/{}.pth',
                     help='save train models')
 parser.add_argument('--loss-path', type=str, default='./save_models/loss.csv',
                     help='save losses')
-        
+parser.add_argument('--load-model', action='store_true', default=False,
+                    help='load model') 
+parser.add_argument('--model-name', type=str, default='',
+                    help='load model name') 
+parser.add_argument('--start-epoch', type=float, default=0, metavar='SP',
+                    help='starting epoch (default: 0)')                  
+
 args = parser.parse_args()
 args.cuda = not args.no_cuda and torch.cuda.is_available()
 
