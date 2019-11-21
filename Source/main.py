@@ -46,7 +46,7 @@ parser.add_argument('--load-model', action='store_true', default=False,
                     help='load model') 
 parser.add_argument('--model-name', type=str, default='',
                     help='load model name') 
-parser.add_argument('--start-epoch', type=float, default=0, metavar='SP',
+parser.add_argument('--start-epoch', type=int, default=0, metavar='SP',
                     help='starting epoch (default: 0)') 
 parser.add_argument('--batch-size', type=float, default=4, metavar='SP',
                     help='batch size (default: 4)')                  
