@@ -53,8 +53,8 @@ def evaluate_model(model, epoch, dev_loader, history=None, cuda=True):
             output = model(img_batch)
 
             loss += FocalLoss(output, mask_batch, regr_batch, size_average=False).data
+ 
     loss /= len(dev_loader.dataset)
-    
     if history is not None:
         history.loc[epoch, 'dev_loss'] = loss.cpu().numpy()
     

@@ -37,7 +37,7 @@ class MyUNet(nn.Module):
         feats = self.base_model.extract_features(x_center)
         bg = torch.zeros([feats.shape[0], feats.shape[1], feats.shape[2], feats.shape[3] // 8])
         if self.args.cuda:
-            bg.cuda()
+            bg = bg.cuda()
         feats = torch.cat([bg, feats, bg], 3)
         
         # Add positional info
