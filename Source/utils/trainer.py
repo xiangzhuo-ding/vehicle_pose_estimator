@@ -8,12 +8,14 @@ def train(model, optimizer, exp_lr_scheduler, train_loader, dev_loader, args):
     for epoch in range(args.epochs):
         train_model(model, optimizer, exp_lr_scheduler, epoch, train_loader, history, args.cuda)
         torch.save(model.state_dict(), args.model_path.format(epoch))
+        evaluate_model(model, epoch, dev_loader, history, args.cuda)
         history.to_csv(args.loss_path)
-        # evaluate_model(model, epoch, dev_loader, history, args.cuda)
+
 
 def train_model(model, optimizer, exp_lr_scheduler, epoch, train_loader, history=None, cuda=True):
     model.train()
     loss = 0
+    
     for batch_idx, (img_batch, mask_batch, regr_batch) in enumerate(tqdm(train_loader)):
         if cuda:
             img_batch = img_batch.cuda()
@@ -40,7 +42,7 @@ def train_model(model, optimizer, exp_lr_scheduler, epoch, train_loader, history
 def evaluate_model(model, epoch, dev_loader, history=None, cuda=True):
     model.eval()
     loss = 0
-    
+
     with torch.no_grad():
         for img_batch, mask_batch, regr_batch in dev_loader:
             if cuda:
