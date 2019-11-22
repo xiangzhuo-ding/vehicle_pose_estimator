@@ -6,7 +6,8 @@ from utils.trainer import train
 from torch import optim
 from torch.optim import lr_scheduler
 
-def main(args):
+def TrainModel(args):
+    print("Training model")
     data = load_data()
     train_loader, dev_loader, test_loader = data.get_baseline(b_size=args.batch_size)
 
@@ -27,6 +28,24 @@ def main(args):
 
     train(model, optimizer, exp_lr_scheduler, train_loader, dev_loader, args)
 
+
+def Inference(args):
+    print("Running Inference")
+    data = load_data()
+    train_loader, dev_loader, test_loader = data.get_baseline(b_size=args.batch_size)
+
+    if args.load_model:
+        print("Loading model: " +  args.model_name)
+        model_path = args.model_path.format(args.model_name)
+        model = MyUNet(8, args)
+        model.load_state_dict(torch.load(model_path))
+    
+    if args.cuda:
+        print('\nGPU is ON!')
+        model = model.cuda()
+
+    model.eval()
+    loss = 0
 
 # Training settings
 parser = argparse.ArgumentParser(description='PKU')
@@ -49,10 +68,15 @@ parser.add_argument('--model-name', type=str, default='',
 parser.add_argument('--start-epoch', type=int, default=0, metavar='SP',
                     help='starting epoch (default: 0)') 
 parser.add_argument('--batch-size', type=float, default=4, metavar='SP',
-                    help='batch size (default: 4)')                  
+                    help='batch size (default: 4)')   
+parser.add_argument('--inference', action='store_true', default=False,
+                    help='batch size (default: 4)')                 
 
 args = parser.parse_args()
 args.cuda = not args.no_cuda and torch.cuda.is_available()
 
 if __name__ == "__main__":
-    main(args)
+    if not args.inference:
+        TrainModel(args)
+    else:
+        Inference(args)
