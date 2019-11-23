@@ -16,7 +16,7 @@ def train_model(model, optimizer, exp_lr_scheduler, epoch, train_loader, history
     model.train()
     loss = 0
     
-    for batch_idx, (img_batch, mask_batch, regr_batch) in enumerate(tqdm(train_loader)):
+    for batch_idx, (img_batch, mask_batch, regr_batch, label) in enumerate(tqdm(train_loader)):
         if cuda:
             img_batch = img_batch.cuda()
             mask_batch = mask_batch.cuda()
@@ -44,7 +44,7 @@ def evaluate_model(model, epoch, dev_loader, history=None, cuda=True):
     loss = 0
 
     with torch.no_grad():
-        for img_batch, mask_batch, regr_batch in dev_loader:
+        for img_batch, mask_batch, regr_batch, label in dev_loader:
             if cuda:
                 img_batch = img_batch.cuda()
                 mask_batch = mask_batch.cuda()
