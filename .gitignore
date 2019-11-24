@@ -1,9 +1,10 @@
 # folder
 data/
+saved_models/
 .vscode/
 __pycache__/
 
 # file
 .pyc
 .pth
-
+.pt
