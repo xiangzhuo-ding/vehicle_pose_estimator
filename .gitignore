@@ -8,4 +8,4 @@ __pycache__/
 .pyc
 .pth
 .pt
-
+.DS_Store
