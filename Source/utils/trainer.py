@@ -1,5 +1,5 @@
 from tqdm import tqdm
-from models.Loss import FocalLoss
+from models.Loss import FocalLoss, EvaluationLoss
 import torch
 import pandas as pd
 
@@ -55,7 +55,7 @@ def evaluate_model(model, epoch, dev_loader, history=None, cuda=True):
 
     total_loss = dict()
     with torch.no_grad():
-        for img_batch, mask_batch, regr_batch, meta in dev_loader:
+        for img_batch, mask_batch, regr_batch, meta in tqdm(dev_loader):
             if cuda:
                 img_batch = img_batch.cuda()
                 mask_batch = mask_batch.cuda()

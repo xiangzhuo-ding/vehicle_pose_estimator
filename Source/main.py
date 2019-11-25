@@ -2,9 +2,10 @@ from datasets.pku import load_data
 import argparse 
 from models.BaselineModel import MyUNet
 import torch
-from utils.trainer import train
+from utils.trainer import *
 from torch import optim
 from torch.optim import lr_scheduler
+import pandas as pd
 
 def TrainModel(args):
     print("Training model")
@@ -46,7 +47,7 @@ def Inference(args):
     
     history = pd.DataFrame()
     evaluate_model(model, args.start_epoch, dev_loader, history, args.cuda)
-    history.to_csv(args.model_name + "loss.csv")
+    history.to_csv('./validation/' + args.model_name + "_loss.csv")
 
     
 

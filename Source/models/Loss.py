@@ -1,4 +1,8 @@
 import torch
+from collections import defaultdict
+from utils.preprocess import extract_coords
+from utils.metrics import * 
+
 
 def FocalLoss(prediction, mask, regr, size_average=True):
     # Binary mask loss
@@ -29,8 +33,8 @@ def EvaluationLoss(output, labels):
         predictions.append(coords)
 
     # we now need to com
-    loss_dict = dict()
-    for i in range(len(labels))
+    loss_dict = defaultdict(lambda: 0)
+    for i in range(len(labels)):
         true_labels = np.array([float(x) for x in labels[i].split()])
         true_labels = true_labels.reshape(-1, 7)
         true_labels = true_labels[:, 1:]
@@ -40,22 +44,28 @@ def EvaluationLoss(output, labels):
             pred.append([x['yaw'], x['pitch'], x['roll'], x['x'], x['y'], x['z']])
         pred = np.array(pred)
 
-        
+       
+        if len(pred) == 0:
+            return loss_dict
+ 
         for true in true_labels:
+            if len(pred) == 0:
+                
             acc_array = [get_acc(true, p) for p in pred]
 
             acc = max(acc_array)
             idx = acc_array.index(acc)
 
-            loss_dict['distance_loss'] += (trans_dist(true[3:], pred[idx][3:]) / len(true_labels)
-            loss_dict['yaw_loss'] += (true[0] - pred[idx][0]) / len(true_labels)
-            loss_dict['pitch_loss'] += (true[1] - pred[idx][1]) / len(true_labels)
-            loss_dict['roll_loss'] += (true[2] - pred[idx][2]) / len(true_labels)
-            loss_dict['x_loss'] += (true[3] - pred[idx][3]) / len(true_labels)
-            loss_dict['y_loss'] += (true[4] - pred[idx][4]) / len(true_labels)
-            loss_dict['z_loss'] += (true[5] - pred[idx][5]) / len(true_labels)
+            loss_dict['acc'] += acc /len(true_labels)
+            loss_dict['distance_loss'] += (trans_dist(true[3:], pred[idx][3:])) / len(true_labels)
+            loss_dict['yaw_loss'] += abs(true[0] - pred[idx][0]) / len(true_labels)
+            loss_dict['pitch_loss'] += abs(true[1] - pred[idx][1]) / len(true_labels)
+            loss_dict['roll_loss'] += abs(true[2] - pred[idx][2]) / len(true_labels)
+            loss_dict['x_loss'] += abs(true[3] - pred[idx][3]) / len(true_labels)
+            loss_dict['y_loss'] += abs(true[4] - pred[idx][4]) / len(true_labels)
+            loss_dict['z_loss'] += abs(true[5] - pred[idx][5]) / len(true_labels)
 
         for i in loss_dict:
-            loss_dict[i] /= len(label)
+            loss_dict[i] /= len(labels)
 
         return loss_dict
