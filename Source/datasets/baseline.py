@@ -37,5 +37,5 @@ class baseline(Dataset):
         mask, regr = get_mask_and_regr(img0, labels, flip=flip)
         regr = np.rollaxis(regr, 2, 0)
         
-        return [img, mask, regr]
+        return [img, mask, regr, (labels, idx)]
 

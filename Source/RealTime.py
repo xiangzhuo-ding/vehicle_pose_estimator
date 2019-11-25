@@ -75,6 +75,9 @@ def main():
         img = np.rollaxis(img,2,0)
 
         output = model(torch.tensor(img[None]).cuda()).data.cpu().numpy()
+        print(output[0].shape)
+        print(output[0][0].shape)
+        print(output[0][1:].shape)
         coords_pred = extract_coords(output[0])
         print(coords_pred)
         
