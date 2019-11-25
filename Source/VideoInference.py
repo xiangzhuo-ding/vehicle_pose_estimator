@@ -47,8 +47,9 @@ def main():
     model.cuda().eval()
 
     cv2.namedWindow("Preview")
+    cv2.namedWindow("Heatmap")
 
-    cap = cv2.VideoCapture('./video/video3.mp4')
+    cap = cv2.VideoCapture('./video/video2.mp4')
 
     # if vc.isOpened(): # try to get the first frame
     #     rval, frame = vc.read()
@@ -68,13 +69,21 @@ def main():
         output = model(torch.tensor(img[None]).cuda()).data.cpu().numpy()
         coords_pred = extract_coords(output[0])
         print(coords_pred)
-        
+        heatmap = torch.sigmoid(torch.tensor(output[0][0])).numpy()
+        heatmap = np.concatenate((np.zeros((40,128)),heatmap), axis=0)
+        heatmap = heatmap[:, 11:-11]
+        heatmap = cv2.applyColorMap(np.uint8(255 * heatmap), cv2.COLORMAP_JET)
+        heatmap = cv2.resize(heatmap,(640,480))
 
         img = visualize(frame, coords_pred)
         img = cv2.resize(img,(640,480))
 
 
+        print(img.shape)
+        print(heatmap.shape)
+
         cv2.imshow("Preview",img)
+        cv2.imshow("Heatmap",heatmap)
         # rval, frame = vc.read()
         key = cv2.waitKey(20)
         if key == 27: # exit on ESC

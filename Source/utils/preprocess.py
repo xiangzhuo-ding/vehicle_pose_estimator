@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 from math import sin, cos
 from scipy.optimize import minimize
+import torch
 
 
 def imread(path, fast_mode=False):
@@ -125,12 +126,13 @@ def rotate(x, angle):
     return x
 
 
-def extract_coords(prediction):
+def extract_coords(prediction, threshold=0.5):
     logits = prediction[0]
+    logits_prob = torch.sigmoid(torch.tensor(logits)).numpy()
     regr_output = prediction[1:]
-    points = np.argwhere(logits > 0)
+    points = np.argwhere(logits_prob > threshold)
     
-    col_names = sorted(['x', 'y', 'z', 'yaw', 'pitch_sin', 'pitch_cos', 'roll'])
+    col_names = sorted(['r', 'theta', 'phi', 'yaw', 'pitch_sin', 'pitch_cos', 'roll'])
     coords = []
     for r, c in points:
         regr_dict = dict(zip(col_names, regr_output[:, r, c]))
@@ -140,15 +142,6 @@ def extract_coords(prediction):
     coords = clear_duplicates(coords)
     return coords
 
-def _regr_back(regr_dict):
-    for name in ['x', 'y', 'z']:
-        regr_dict[name] = regr_dict[name] * 100
-    regr_dict['roll'] = rotate(regr_dict['roll'], -np.pi)
-    
-    pitch_sin = regr_dict['pitch_sin'] / np.sqrt(regr_dict['pitch_sin']**2 + regr_dict['pitch_cos']**2)
-    pitch_cos = regr_dict['pitch_cos'] / np.sqrt(regr_dict['pitch_sin']**2 + regr_dict['pitch_cos']**2)
-    regr_dict['pitch'] = np.arccos(pitch_cos) * np.sign(pitch_sin)
-    return regr_dict
 
 
 def convert_3d_to_2d(x, y, z, fx = 2304.5479, fy = 2305.8757, cx = 1686.2379, cy = 1354.9849):
@@ -186,24 +179,48 @@ def clear_duplicates(coords):
                     c1['confidence'] = -1
     return [c for c in coords if c['confidence'] > 0]
 
+
+def cartesian2spherical(x, y, z):
+    r = np.sqrt(x**2+y**2+z**2)
+    theta = np.arccos(z/r)
+    phi = np.arctan2(y,x)
+    return r, theta, phi
+
+def spherical2cartesian(r, theta, phi):
+    x = r*np.sin(theta)*np.cos(phi)
+    y = r*np.sin(theta)*np.sin(phi)
+    z = r*np.cos(theta)
+    return x, y, z
+
 def _regr_preprocess(regr_dict, flip=False):
+
+
+    regr_dict['r'], regr_dict['theta'], regr_dict['phi'] = cartesian2spherical(regr_dict['x'], regr_dict['y'], regr_dict['z'])
+
+
     if flip:
-        for k in ['x', 'pitch', 'roll']:
+        for k in ['pitch', 'roll']:
             regr_dict[k] = -regr_dict[k]
-    for name in ['x', 'y', 'z']:
-        regr_dict[name] = regr_dict[name] / 100
+        regr_dict['phi'] = np.pi - regr_dict['phi']
+
+    regr_dict['r'] = regr_dict['r'] / 200
+    regr_dict['phi'] = rotate(regr_dict['phi'], -np.pi/2)
     regr_dict['roll'] = rotate(regr_dict['roll'], np.pi)
     regr_dict['pitch_sin'] = sin(regr_dict['pitch'])
     regr_dict['pitch_cos'] = cos(regr_dict['pitch'])
     regr_dict.pop('pitch')
     regr_dict.pop('id')
+    regr_dict.pop('x')
+    regr_dict.pop('y')
+    regr_dict.pop('z')
     return regr_dict
 
 def _regr_back(regr_dict):
-    for name in ['x', 'y', 'z']:
-        regr_dict[name] = regr_dict[name] * 100
+    regr_dict['r'] = regr_dict['r'] * 200
     regr_dict['roll'] = rotate(regr_dict['roll'], -np.pi)
-    
+    regr_dict['phi'] = rotate(regr_dict['phi'], np.pi/2)
+    regr_dict['x'], regr_dict['y'], regr_dict['z'] = spherical2cartesian(regr_dict['r'], regr_dict['theta'], regr_dict['phi'])
+
     pitch_sin = regr_dict['pitch_sin'] / np.sqrt(regr_dict['pitch_sin']**2 + regr_dict['pitch_cos']**2)
     pitch_cos = regr_dict['pitch_cos'] / np.sqrt(regr_dict['pitch_sin']**2 + regr_dict['pitch_cos']**2)
     regr_dict['pitch'] = np.arccos(pitch_cos) * np.sign(pitch_sin)
