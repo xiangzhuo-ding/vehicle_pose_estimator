@@ -45,9 +45,8 @@ def Inference(args):
         model = model.cuda()
     
     history = pd.DataFrame()
-    evaluate_model(model, epoch, dev_loader, history, args.cuda)
+    evaluate_model(model, args.start_epoch, dev_loader, history, args.cuda)
     history.to_csv(args.model_name + "loss.csv")
-
 
     
 
@@ -74,7 +73,7 @@ parser.add_argument('--start-epoch', type=int, default=0, metavar='SP',
 parser.add_argument('--batch-size', type=float, default=4, metavar='SP',
                     help='batch size (default: 4)')   
 parser.add_argument('--inference', action='store_true', default=False,
-                    help='batch size (default: 4)')                 
+                    help='run analysis for the validation set)')                 
 
 args = parser.parse_args()
 args.cuda = not args.no_cuda and torch.cuda.is_available()
