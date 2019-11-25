@@ -45,27 +45,34 @@ def EvaluationLoss(output, labels):
         pred = np.array(pred)
 
        
-        if len(pred) == 0:
-            return loss_dict
  
         for true in true_labels:
             if len(pred) == 0:
-                
-            acc_array = [get_acc(true, p) for p in pred]
+                loss_dict['acc']  = 0 
+                loss_dict['rot_loss'] = 360
+                p = true[3:].copy()
+                p = [-x for x in p]
+                loss_dict['distance_loss'] += (trans_dist(true[3:], p)) / len(true_labels)
+                loss_dict['yaw_loss'] += abs(true[0]) / len(true_labels)
+                loss_dict['pitch_loss'] += abs(true[1]) / len(true_labels)
+                loss_dict['roll_loss'] += abs(true[2]) / len(true_labels)
+                loss_dict['x_loss'] += abs(true[3]) / len(true_labels)
+                loss_dict['y_loss'] += abs(true[4]) / len(true_labels)
+                loss_dict['z_loss'] += abs(true[5]) / len(true_labels)
+            else:
+                acc_array = [get_acc(true, p) for p in pred]
 
-            acc = max(acc_array)
-            idx = acc_array.index(acc)
+                acc = max(acc_array)
+                idx = acc_array.index(acc)
 
-            loss_dict['acc'] += acc /len(true_labels)
-            loss_dict['distance_loss'] += (trans_dist(true[3:], pred[idx][3:])) / len(true_labels)
-            loss_dict['yaw_loss'] += abs(true[0] - pred[idx][0]) / len(true_labels)
-            loss_dict['pitch_loss'] += abs(true[1] - pred[idx][1]) / len(true_labels)
-            loss_dict['roll_loss'] += abs(true[2] - pred[idx][2]) / len(true_labels)
-            loss_dict['x_loss'] += abs(true[3] - pred[idx][3]) / len(true_labels)
-            loss_dict['y_loss'] += abs(true[4] - pred[idx][4]) / len(true_labels)
-            loss_dict['z_loss'] += abs(true[5] - pred[idx][5]) / len(true_labels)
-
-        for i in loss_dict:
-            loss_dict[i] /= len(labels)
+                loss_dict['acc'] += acc /len(true_labels)
+                loss_dict['rot_loss'] += (rot_dist(true[:3], pred[idx][:3])) / len(true_labels)
+                loss_dict['distance_loss'] += (trans_dist(true[3:], pred[idx][3:])) / len(true_labels)
+                loss_dict['yaw_loss'] += abs(true[0] - pred[idx][0]) / len(true_labels)
+                loss_dict['pitch_loss'] += abs(true[1] - pred[idx][1]) / len(true_labels)
+                loss_dict['roll_loss'] += abs(true[2] - pred[idx][2]) / len(true_labels)
+                loss_dict['x_loss'] += abs(true[3] - pred[idx][3]) / len(true_labels)
+                loss_dict['y_loss'] += abs(true[4] - pred[idx][4]) / len(true_labels)
+                loss_dict['z_loss'] += abs(true[5] - pred[idx][5]) / len(true_labels)
 
         return loss_dict

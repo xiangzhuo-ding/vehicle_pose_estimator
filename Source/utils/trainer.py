@@ -79,6 +79,7 @@ def evaluate_model(model, epoch, dev_loader, history=None, cuda=True):
     if history is not None:
         history.loc[epoch, 'dev_loss'] = loss.cpu().numpy()
         history.loc[epoch, 'train_loss'] = loss.data.cpu().numpy()
+        history.loc[epoch, 'rot_loss'] = extra_loss['rot_loss']
         history.loc[epoch, 'distance_loss'] = extra_loss['distance_loss']
         history.loc[epoch, 'yaw_loss'] = extra_loss['yaw_loss']
         history.loc[epoch, 'pitch_loss'] = extra_loss['pitch_loss']
