@@ -49,7 +49,7 @@ def EvaluationLoss(output, labels):
         for true in true_labels:
             if len(pred) == 0:
                 loss_dict['acc']  = 0 
-                loss_dict['rot_loss'] = 360
+                loss_dict['rot_loss'] = 180 / len(true_labels)
                 p = true[3:].copy()
                 p = [-x for x in p]
                 loss_dict['distance_loss'] += (trans_dist(true[3:], p)) / len(true_labels)
