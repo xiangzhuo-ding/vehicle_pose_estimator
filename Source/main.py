@@ -43,10 +43,10 @@ def Inference(args):
     if args.cuda:
         print('\nGPU is ON!')
         model = model.cuda()
-
-    model.eval()
-    loss = 0
-
+    
+    history = pd.DataFrame()
+    evaluate_model(model, epoch, dev_loader, history, args.cuda)
+    history.to_csv(args.model_name + "loss.csv")
 
 
     

@@ -29,18 +29,33 @@ def EvaluationLoss(output, labels):
         predictions.append(coords)
 
     # we now need to com
-z = np.array([float(x) for x in label[0].split()])
-z = z.reshape(-1, 7)
-z = z[:, 1:]
+    loss_dict = dict()
+    for i in range(len(labels))
+        true_labels = np.array([float(x) for x in labels[i].split()])
+        true_labels = true_labels.reshape(-1, 7)
+        true_labels = true_labels[:, 1:]
 
+        pred = []
+        for x in predictions[i]:
+            pred.append([x['yaw'], x['pitch'], x['roll'], x['x'], x['y'], x['z']])
+        pred = np.array(pred)
 
+        
+        for true in true_labels:
+            acc_array = [get_acc(true, p) for p in pred]
 
-    pred = []
-for x in predictions[0]:
-    pred.append([x['yaw'], x['pitch'], x['roll'], x['x'], x['y'], x['z']])
-pred = np.array(pred)
-for true in z:
-    distance_loss = min([trans_dist(true[3:], p[3:]) for p in pred])
-    rotation_loss = min([rot_dist(true[:3], p[:3]) for p in pred])
-    acc = max([get_acc(true, p) for p in pred])
-    print(distance_loss, rotation_loss, acc)
+            acc = max(acc_array)
+            idx = acc_array.index(acc)
+
+            loss_dict['distance_loss'] += (trans_dist(true[3:], pred[idx][3:]) / len(true_labels)
+            loss_dict['yaw_loss'] += (true[0] - pred[idx][0]) / len(true_labels)
+            loss_dict['pitch_loss'] += (true[1] - pred[idx][1]) / len(true_labels)
+            loss_dict['roll_loss'] += (true[2] - pred[idx][2]) / len(true_labels)
+            loss_dict['x_loss'] += (true[3] - pred[idx][3]) / len(true_labels)
+            loss_dict['y_loss'] += (true[4] - pred[idx][4]) / len(true_labels)
+            loss_dict['z_loss'] += (true[5] - pred[idx][5]) / len(true_labels)
+
+        for i in loss_dict:
+            loss_dict[i] /= len(label)
+
+        return loss_dict
