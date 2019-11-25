@@ -7,4 +7,9 @@ __pycache__/
 # file
 .pyc
 .pth
+<<<<<<< HEAD
 .pt
+=======
+.pt
+.DS_Store
+>>>>>>> origin/xiangzhuo
