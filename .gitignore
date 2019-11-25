@@ -1,6 +1,7 @@
 # folder
 data/
 saved_models/
+video/
 .vscode/
 __pycache__/
 

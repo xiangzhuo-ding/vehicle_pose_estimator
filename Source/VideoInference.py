@@ -2,22 +2,12 @@ import cv2
 import torch
 from PIL import Image, ImageDraw
 import matplotlib.pyplot as plt
-
-
-# import pandas as pd
-# import matplotlib.pyplot as plt
 import gc
-# import os
-
-# from sklearn.model_selection import train_test_split
-# from sklearn.linear_model import LinearRegression
-# from sklearn.metrics import mean_absolute_error, mean_squared_error
 
 import argparse 
 from models.BaselineModel import MyUNet
 import torch
 from utils.preprocess import *
-
 
 
 
@@ -58,14 +48,15 @@ def main():
 
     cv2.namedWindow("Preview")
 
-    vc = cv2.VideoCapture(0)
+    cap = cv2.VideoCapture('./video/video3.mp4')
 
-    if vc.isOpened(): # try to get the first frame
-        rval, frame = vc.read()
-    else:
-        rval = False
+    # if vc.isOpened(): # try to get the first frame
+    #     rval, frame = vc.read()
+    # else:
+    #     rval = False
         
-    while rval:
+    while(cap.isOpened()):
+        ret, frame = cap.read()
         frame = cv2.resize(frame,(3384,2710))
 
         # frame =  cv2.imread('../data/train_images/ID_0a1eb2c76.jpg')
@@ -75,9 +66,6 @@ def main():
         img = np.rollaxis(img,2,0)
 
         output = model(torch.tensor(img[None]).cuda()).data.cpu().numpy()
-        print(output[0].shape)
-        print(output[0][0].shape)
-        print(output[0][1:].shape)
         coords_pred = extract_coords(output[0])
         print(coords_pred)
         
@@ -87,12 +75,12 @@ def main():
 
 
         cv2.imshow("Preview",img)
-        rval, frame = vc.read()
+        # rval, frame = vc.read()
         key = cv2.waitKey(20)
         if key == 27: # exit on ESC
             break
 
-    vc.release()
+    cap.release()
     cv2.destroyAllWindows()
 
 

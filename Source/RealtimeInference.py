@@ -4,14 +4,8 @@ from PIL import Image, ImageDraw
 import matplotlib.pyplot as plt
 
 
-# import pandas as pd
-# import matplotlib.pyplot as plt
 import gc
-# import os
 
-# from sklearn.model_selection import train_test_split
-# from sklearn.linear_model import LinearRegression
-# from sklearn.metrics import mean_absolute_error, mean_squared_error
 
 import argparse 
 from models.BaselineModel import MyUNet
@@ -75,9 +69,6 @@ def main():
         img = np.rollaxis(img,2,0)
 
         output = model(torch.tensor(img[None]).cuda()).data.cpu().numpy()
-        print(output[0].shape)
-        print(output[0][0].shape)
-        print(output[0][1:].shape)
         coords_pred = extract_coords(output[0])
         print(coords_pred)
         
