@@ -75,6 +75,9 @@ def apk(actual, predicted, k=10):
 def mapk(actual, predicted, k=10):
     return np.mean([apk(a,p,k) for a,p in zip(actual, predicted)])
 
+
+
+
 if __name__ == "__main__":
     pred = [0.15, -3.1, -3.1, 8.09433326, 5.27078698, 21.43466666]
     true = [0.169198, -3.11164, -3.08562, 7.42949, 4.99111, 20.2823]

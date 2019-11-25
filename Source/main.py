@@ -47,6 +47,10 @@ def Inference(args):
     model.eval()
     loss = 0
 
+
+
+    
+
 # Training settings
 parser = argparse.ArgumentParser(description='PKU')
 parser.add_argument('--epochs', type=int, default=10, metavar='N',

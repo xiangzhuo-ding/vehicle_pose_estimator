@@ -16,7 +16,7 @@ def train_model(model, optimizer, exp_lr_scheduler, epoch, train_loader, history
     model.train()
     loss = 0
     
-    for batch_idx, (img_batch, mask_batch, regr_batch, label) in enumerate(tqdm(train_loader)):
+    for batch_idx, (img_batch, mask_batch, regr_batch, meta) in enumerate(tqdm(train_loader)):
         if cuda:
             img_batch = img_batch.cuda()
             mask_batch = mask_batch.cuda()
@@ -24,7 +24,18 @@ def train_model(model, optimizer, exp_lr_scheduler, epoch, train_loader, history
         
         optimizer.zero_grad()
         output = model(img_batch)
+
         loss = FocalLoss(output, mask_batch, regr_batch)
+        distance_loss, rotation_loss, acc = EvaluationLoss(output, meta[0])
+
+        pred = []
+        for out in output:
+            coords = extract_coords(out)
+            pred.append(coords)
+        
+        labels = meta[0]
+
+
         if history is not None:
             history.loc[epoch + batch_idx / len(train_loader), 'train_loss'] = loss.data.cpu().numpy()
         
@@ -44,7 +55,7 @@ def evaluate_model(model, epoch, dev_loader, history=None, cuda=True):
     loss = 0
 
     with torch.no_grad():
-        for img_batch, mask_batch, regr_batch, label in dev_loader:
+        for img_batch, mask_batch, regr_batch, meta in dev_loader:
             if cuda:
                 img_batch = img_batch.cuda()
                 mask_batch = mask_batch.cuda()
@@ -52,9 +63,20 @@ def evaluate_model(model, epoch, dev_loader, history=None, cuda=True):
 
             output = model(img_batch)
 
+            # get the prediction label into coords 
+            pred = []
+            for out in output:
+                coords = extract_coords(out)
+                pred.append(coords)
+            
+            labels = meta[0]
+            for label in labels:
+                true = 
+
             loss += FocalLoss(output, mask_batch, regr_batch, size_average=False).data
- 
+
     loss /= len(dev_loader.dataset)
+
     if history is not None:
         history.loc[epoch, 'dev_loss'] = loss.cpu().numpy()
     

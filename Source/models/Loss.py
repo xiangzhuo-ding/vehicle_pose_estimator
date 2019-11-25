@@ -17,3 +17,15 @@ def FocalLoss(prediction, mask, regr, size_average=True):
     if not size_average:
         loss *= prediction.shape[0]
     return loss
+
+def EvaluationLoss(output, labels):
+    output = output.data.cpu().numpy()
+
+    # convert for the prediction from the model to the corrds format
+    predictions = []
+
+    for out in output:
+        coords = extract_coords(out)
+        predictions.append(coords)
+
+    # we now need to com
