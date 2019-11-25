@@ -29,3 +29,18 @@ def EvaluationLoss(output, labels):
         predictions.append(coords)
 
     # we now need to com
+z = np.array([float(x) for x in label[0].split()])
+z = z.reshape(-1, 7)
+z = z[:, 1:]
+
+
+
+    pred = []
+for x in predictions[0]:
+    pred.append([x['yaw'], x['pitch'], x['roll'], x['x'], x['y'], x['z']])
+pred = np.array(pred)
+for true in z:
+    distance_loss = min([trans_dist(true[3:], p[3:]) for p in pred])
+    rotation_loss = min([rot_dist(true[:3], p[:3]) for p in pred])
+    acc = max([get_acc(true, p) for p in pred])
+    print(distance_loss, rotation_loss, acc)
