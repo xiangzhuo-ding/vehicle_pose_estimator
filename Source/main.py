@@ -22,6 +22,11 @@ def TrainModel(args):
     if args.cuda:
         print('\nGPU is ON!')
         model = model.cuda()
+
+        if args.gpus > 1:
+            model = torch.nn.DataParallel(model)
+
+
     
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
     exp_lr_scheduler = lr_scheduler.StepLR(optimizer, 
@@ -78,6 +83,8 @@ parser.add_argument('--inference', action='store_true', default=False,
                     help='run analysis for the validation set)') 
 parser.add_argument('--output-size', type=float, default=8, metavar='OS',
                     help='output-size (default: 8)')                  
+parser.add_argument('--gpus', type=int, default=2, metavar='gpu',
+                    help='starting epoch (default: 0)')   
 
 args = parser.parse_args()
 args.cuda = not args.no_cuda and torch.cuda.is_available()
