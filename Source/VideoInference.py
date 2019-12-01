@@ -43,31 +43,38 @@ def main():
     args = parser.parse_args()
     args.cuda = not args.no_cuda and torch.cuda.is_available()
     model = MyUNet(8, args)
-    model.load_state_dict(torch.load('./saved_models/9.pth'))
+    model.load_state_dict(torch.load('./saved_models/15.pth'))
     model.cuda().eval()
 
     cv2.namedWindow("Preview")
     cv2.namedWindow("Heatmap")
 
-    cap = cv2.VideoCapture('./video/video2.mp4')
+    cap = cv2.VideoCapture('./video/video3.mp4')
 
     # if vc.isOpened(): # try to get the first frame
     #     rval, frame = vc.read()
     # else:
     #     rval = False
+    plot = canvas()
         
     while(cap.isOpened()):
         ret, frame = cap.read()
+        diff = int((frame.shape[1] - frame.shape[0]*1.2487)/2)
+        frame = frame[:,diff:-diff,:]
+
         frame = cv2.resize(frame,(3384,2710))
 
-        # frame =  cv2.imread('../data/train_images/ID_0a1eb2c76.jpg')
-        # print(frame.shape)
+
 
         img = preprocess_image(frame.copy())
         img = np.rollaxis(img,2,0)
 
         output = model(torch.tensor(img[None]).cuda()).data.cpu().numpy()
-        coords_pred = extract_coords(output[0])
+        coords_pred = extract_coords_cartesian(output[0], 0.3)
+        # coords_pred = extract_coords(output[0], 0.05)
+
+        plot.bird(coords_pred)
+
         print(coords_pred)
         heatmap = torch.sigmoid(torch.tensor(output[0][0])).numpy()
         heatmap = np.concatenate((np.zeros((40,128)),heatmap), axis=0)
@@ -78,9 +85,6 @@ def main():
         img = visualize(frame, coords_pred)
         img = cv2.resize(img,(640,480))
 
-
-        print(img.shape)
-        print(heatmap.shape)
 
         cv2.imshow("Preview",img)
         cv2.imshow("Heatmap",heatmap)

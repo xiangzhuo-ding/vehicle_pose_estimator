@@ -3,6 +3,9 @@ import numpy as np
 from math import sin, cos
 from scipy.optimize import minimize
 import torch
+import matplotlib.pyplot as plt
+import matplotlib.patches as patches
+import matplotlib as mpl
 
 
 def imread(path, fast_mode=False):
@@ -125,6 +128,33 @@ def rotate(x, angle):
     x = x - (x + np.pi) // (2 * np.pi) * 2 * np.pi
     return x
 
+def extract_coords_cartesian(prediction, threshold=0.5):
+    logits = prediction[0]
+    logits_prob = torch.sigmoid(torch.tensor(logits)).numpy()
+    regr_output = prediction[1:]
+    points = np.argwhere(logits_prob > threshold)
+    
+    col_names = sorted(['x', 'y', 'z', 'yaw', 'pitch_sin', 'pitch_cos', 'roll'])
+    coords = []
+    for r, c in points:
+        regr_dict = dict(zip(col_names, regr_output[:, r, c]))
+        coords.append(_regr_back_cartesian(regr_dict))
+        coords[-1]['confidence'] = 1 / (1 + np.exp(-logits[r, c]))
+        coords[-1]['x'], coords[-1]['y'], coords[-1]['z'] = optimize_xy(r, c, coords[-1]['x'], coords[-1]['y'], coords[-1]['z'])
+    coords = clear_duplicates(coords)
+    return coords
+
+
+def _regr_back_cartesian(regr_dict):
+    for name in ['x', 'y', 'z']:
+        regr_dict[name] = regr_dict[name] * 100
+    regr_dict['roll'] = rotate(regr_dict['roll'], -np.pi)
+    
+    pitch_sin = regr_dict['pitch_sin'] / np.sqrt(regr_dict['pitch_sin']**2 + regr_dict['pitch_cos']**2)
+    pitch_cos = regr_dict['pitch_cos'] / np.sqrt(regr_dict['pitch_sin']**2 + regr_dict['pitch_cos']**2)
+    regr_dict['pitch'] = np.arccos(pitch_cos) * np.sign(pitch_sin)
+    return regr_dict
+
 
 def extract_coords(prediction, threshold=0.5):
     logits = prediction[0]
@@ -174,7 +204,7 @@ def clear_duplicates(coords):
         for c2 in coords:
             xyz2 = np.array([c2['x'], c2['y'], c2['z']])
             distance = np.sqrt(((xyz1 - xyz2)**2).sum())
-            if distance < 2:
+            if distance < 5:
                 if c1['confidence'] < c2['confidence']:
                     c1['confidence'] = -1
     return [c for c in coords if c['confidence'] > 0]
@@ -263,3 +293,51 @@ def get_mask_and_regr(img, labels, flip=False):
         mask = np.array(mask[:,::-1])
         regr = np.array(regr[:,::-1])
     return mask, regr
+
+class canvas(object):
+    def __init__(self, close = True):
+        self.fig = plt.figure(figsize=(8,8))
+        self.ax = self.fig.add_subplot(111)
+        self.t = 0
+        self.close = close
+
+    def bird(self, points_df, show = True):
+        self.t = not self.t
+        if self.close:
+            plt.cla()
+            plt.ion()
+        road_width = 20
+        road_xs = [-road_width, road_width, road_width, -road_width, -road_width]
+        road_ys = [0, 0, 500, 500, 0]
+
+
+        plt.axes().set_aspect(1)
+        plt.xlim(-50,50)
+        plt.ylim(0,120)
+
+        # View road
+        plt.fill(road_xs, road_ys, alpha=0.2, color='gray')
+        plt.plot([road_width/2,road_width/2], [-10*self.t,150], alpha=0.4, linewidth=4, color='white', ls='--')
+        plt.plot([-road_width/2,-road_width/2], [-10*self.t,150], alpha=0.4, linewidth=4, color='white', ls='--')
+        # View cars
+        x = np.array([point['x'] for point in points_df])
+        y = np.array([point['y'] for point in points_df])
+        z = np.array([point['z'] for point in points_df])
+        Y = np.sqrt(z**2 + y**2)
+        # roll = np.array([point['roll'] for point in points_df])
+        pitch = np.array([point['pitch'] for point in points_df])
+        # yaw = np.array([point['yaw'] for point in points_df])
+
+        for i in range(len(x)):
+            t = mpl.transforms.Affine2D().rotate_deg_around(x[i],Y[i],pitch[i]*180/np.pi) + self.ax.transData
+            rect = patches.Rectangle((x[i]-1,Y[i]-2), 2, 4, color="blue", alpha=0.50, transform = t)
+            self.ax.add_patch(rect)
+            arrow = patches.Arrow(x[i], Y[i], 3*np.cos(pitch[i]+np.pi/2), 3*np.sin(pitch[i]+np.pi/2), 1.5,color = "red")
+            self.ax.add_patch(arrow)
+
+        plt.plot([0,48], [0,60], [0,-48], [0,60], color = 'red', ls = '--')
+
+
+        plt.scatter(x, Y, color='red', s=10)
+        if show:
+            plt.show()
