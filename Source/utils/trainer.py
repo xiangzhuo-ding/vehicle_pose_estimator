@@ -6,7 +6,7 @@ import pandas as pd
 def train(model, optimizer, exp_lr_scheduler, train_loader, dev_loader, args):
     history = pd.DataFrame()
     dev_history = pd.DataFrame()
-    for epoch in range(args.start_epoch, args.epochs):
+    for epoch in range(args.start_epoch, args.start_epoch + args.epochs):
         train_model(model, optimizer, exp_lr_scheduler, epoch, train_loader, history, args.cuda)
         torch.save(model.state_dict(), args.model_path.format(epoch))
         evaluate_model(model, epoch, dev_loader, dev_history, args.cuda)
