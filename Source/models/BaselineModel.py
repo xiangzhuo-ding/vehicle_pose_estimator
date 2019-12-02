@@ -21,7 +21,10 @@ class MyUNet(nn.Module):
         
         self.up1 = up(1282 + 1024, 512)
         self.up2 = up(512 + 512, 256)
-        self.outc = nn.Conv2d(256, n_classes, 1)
+        self.up3 = up(256 + 128, 128)
+        self.up4 = up(128 + 64, 64)
+        self.up5 = up(64 + 5, 5)
+        self.outc = nn.Conv2d(5, n_classes, 1)
         
     def forward(self, x):
         batch_size = x.shape[0]
@@ -33,7 +36,7 @@ class MyUNet(nn.Module):
         x4 = self.mp(self.conv3(x3))
         IMG_WIDTH = 1024
         IMG_HEIGHT = IMG_WIDTH // 16 * 5
-        x_center = x[:, :, :, IMG_WIDTH // 8: -IMG_WIDTH // 8]
+        x_center = x
         feats = self.base_model.extract_features(x_center)
         bg = torch.zeros([feats.shape[0], feats.shape[1], feats.shape[2], feats.shape[3] // 8])
         if self.args.cuda:
@@ -46,6 +49,9 @@ class MyUNet(nn.Module):
         
         x = self.up1(feats, x4)
         x = self.up2(x, x3)
+        x = self.up3(x, x2)
+        x = self.up4(x, x1)
+        x = self.up5(x, x0)
         x = self.outc(x)
         return x
 

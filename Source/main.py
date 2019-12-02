@@ -7,6 +7,7 @@ from torch import optim
 from torch.optim import lr_scheduler
 import pandas as pd
 
+
 def TrainModel(args):
     print("Training model")
     data = load_data()
@@ -14,17 +15,17 @@ def TrainModel(args):
 
     model = MyUNet(args.output_size, args)
 
-    if args.load_model:
-        print("Loading model: " +  args.model_name)
-        model_path = args.model_path.format(args.model_name)
-        model.load_state_dict(torch.load(model_path))
-
     if args.cuda:
         print('\nGPU is ON!')
         model = model.cuda()
 
         if args.gpus > 1:
             model = torch.nn.DataParallel(model)
+
+    if args.load_model:
+        print("Loading model: " +  args.model_name)
+        model_path = args.model_path.format(args.model_name)
+        model.load_state_dict(torch.load(model_path))
 
 
     
@@ -41,16 +42,21 @@ def Inference(args):
     data = load_data()
     train_loader, dev_loader, test_loader = data.get_baseline(b_size=args.batch_size)
 
-    if args.load_model:
-        print("Loading model: " +  args.model_name)
-        model_path = args.model_path.format(args.model_name)
-        model = MyUNet(8, args)
-        model.load_state_dict(torch.load(model_path))
-    
+    model = MyUNet(8, args)
+ 
     if args.cuda:
         print('\nGPU is ON!')
         model = model.cuda()
+
+        if args.gpus > 1:
+            model = torch.nn.DataParallel(model)
+ 
+    if args.load_model:
+        print("Loading model: " +  args.model_name)
+        model_path = args.model_path.format(args.model_name)
+        model.load_state_dict(torch.load(model_path))
     
+   
     history = pd.DataFrame()
     evaluate_model(model, args.start_epoch, dev_loader, history, args.cuda)
     history.to_csv('./validation/' + args.model_name + "_loss.csv")

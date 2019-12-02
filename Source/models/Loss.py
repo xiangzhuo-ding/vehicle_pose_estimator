@@ -60,7 +60,8 @@ def EvaluationLoss(output, labels):
                 loss_dict['y_loss'] += abs(true[4]) / len(true_labels)
                 loss_dict['z_loss'] += abs(true[5]) / len(true_labels)
             else:
-                acc_array = [get_acc(true, p) for p in pred]
+                acc_array = [get_acc(true, np.concatenate((p[:3], true[3:]))) for p in pred]
+
 
                 acc = max(acc_array)
                 idx = acc_array.index(acc)
@@ -75,7 +76,7 @@ def EvaluationLoss(output, labels):
                 loss_dict['y_loss'] += abs(true[4] - pred[idx][4]) / len(true_labels)
                 loss_dict['z_loss'] += abs(true[5] - pred[idx][5]) / len(true_labels)
 
-        return loss_dict
+    return loss_dict
 
 
 

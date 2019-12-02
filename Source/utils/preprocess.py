@@ -3,8 +3,11 @@ import numpy as np
 from math import sin, cos
 from scipy.optimize import minimize
 import torch
-
-
+import utils.car_models as car_models
+import json
+import math
+import time
+ 
 def imread(path, fast_mode=False):
     img = cv2.imread(path)
     if not fast_mode and img is not None and len(img.shape) == 3:
@@ -152,7 +155,7 @@ def optimize_xy(r, c, x0, y0, z0):
     def distance_fn(xyz):
         IMG_WIDTH = 1024
         IMG_HEIGHT = IMG_WIDTH // 16 * 5
-        MODEL_SCALE = 8
+        MODEL_SCALE = 1
         IMG_SHAPE = (2710, 3384, 3)
 
         x, y, z = xyz
@@ -226,12 +229,15 @@ def _regr_back(regr_dict):
     regr_dict['pitch'] = np.arccos(pitch_cos) * np.sign(pitch_sin)
     return regr_dict
 
-def preprocess_image(img, flip=False):
+def preprocess_image(img, flip=False, mask = False):
     IMG_WIDTH = 1024
     IMG_HEIGHT = IMG_WIDTH // 16 * 5
 
     img = img[img.shape[0] // 2:]
-    bg = np.ones_like(img) * img.mean(1, keepdims=True).astype(img.dtype)
+    if not mask:
+        bg = np.ones_like(img) * img.mean(1, keepdims=True).astype(img.dtype)
+    else:
+        bg = np.zeros((img.shape))
     bg = bg[:, :img.shape[1] // 6]
     img = np.concatenate([bg, img, bg], 1)
     img = cv2.resize(img, (IMG_WIDTH, IMG_HEIGHT))
@@ -239,27 +245,99 @@ def preprocess_image(img, flip=False):
         img = img[:,::-1]
     return (img / 255).astype('float32')
 
-def get_mask_and_regr(img, labels, flip=False):
+def get_mask_and_regr(img, mask, labels,  flip=False):
     IMG_WIDTH = 1024
     IMG_HEIGHT = IMG_WIDTH // 16 * 5
-    MODEL_SCALE = 8
+    MODEL_SCALE = 1
 
-    mask = np.zeros([IMG_HEIGHT // MODEL_SCALE, IMG_WIDTH // MODEL_SCALE], dtype='float32')
+    # mask = np.zeros([IMG_HEIGHT, IMG_WIDTH], dtype='float32')
+    
+    # for x in range(mask_original.shape[0]):
+
     regr_names = ['x', 'y', 'z', 'yaw', 'pitch', 'roll']
-    regr = np.zeros([IMG_HEIGHT // MODEL_SCALE, IMG_WIDTH // MODEL_SCALE, 7], dtype='float32')
+    regr = np.zeros([IMG_HEIGHT, IMG_WIDTH, 7], dtype='float32')
     coords = str2coords(labels)
     xs, ys = get_img_coords(labels)
     for x, y, regr_dict in zip(xs, ys, coords):
         x, y = y, x
-        x = (x - img.shape[0] // 2) * IMG_HEIGHT / (img.shape[0] // 2) / MODEL_SCALE
+        x = (x - img.shape[0] // 2) * IMG_HEIGHT / (img.shape[0] // 2)
         x = np.round(x).astype('int')
-        y = (y + img.shape[1] // 6) * IMG_WIDTH / (img.shape[1] * 4/3) / MODEL_SCALE
+        y = (y + img.shape[1] // 6) * IMG_WIDTH / (img.shape[1] * 4/3)
         y = np.round(y).astype('int')
-        if x >= 0 and x < IMG_HEIGHT // MODEL_SCALE and y >= 0 and y < IMG_WIDTH // MODEL_SCALE:
-            mask[x, y] = 1
+        # this might cause images not being able to 
+        if x >= 0 and x < IMG_HEIGHT and y >= 0 and y < IMG_WIDTH:
             regr_dict = _regr_preprocess(regr_dict, flip)
             regr[x, y] = [regr_dict[n] for n in sorted(regr_dict)]
+
     if flip:
         mask = np.array(mask[:,::-1])
         regr = np.array(regr[:,::-1])
     return mask, regr
+
+
+def get_overlay_mask(label, img):
+    
+    
+    k = np.array([[2304.5479, 0,  1686.2379],
+               [0, 2305.8757, 1354.9849],
+               [0, 0, 1]], dtype=np.float32)    
+    
+    items = label.split(' ')
+    model_types, yaws, pitches, rolls, xs, ys, zs = [items[i::7] for i in range(7)]
+
+    overlay = np.zeros_like(img)
+    overlay = overlay.astype(float)
+    for model, yaw, pitch, roll, x, y, z in zip(model_types, yaws, pitches, rolls, xs, ys, zs):
+        yaw, pitch, roll, x, y, z = [float(x) for x in [yaw, pitch, roll, x, y, z]]
+        model_name = car_models.car_id2name[int(model)].name
+        
+        json_file = open("../data/car_models_json/{}.json".format(model_name))
+        data = json.load(json_file)
+        
+        vertices = np.array(data['vertices'])
+        vertices[:, 1] = -vertices[:, 1]
+        triangles = np.array(data['faces']) - 1
+
+        # I think the pitch and yaw should be exchanged
+        yaw, pitch, roll = -pitch, -yaw, -roll
+        Rt = np.eye(4)
+        t = np.array([x, y, z])
+        Rt[:3, 3] = t
+        Rt[:3, :3] = euler_to_Rot(yaw, pitch, roll).T
+        Rt = Rt[:3, :]
+        P = np.ones((vertices.shape[0],vertices.shape[1]+1))
+        P[:, :-1] = vertices
+        P = P.T
+        img_cor_points = np.dot(k, np.dot(Rt, P))
+        img_cor_points = img_cor_points.T
+        img_cor_points[:, 0] /= img_cor_points[:, 2]
+        img_cor_points[:, 1] /= img_cor_points[:, 2]
+        x_center, y_center = convert_3d_to_2d(x, y, z)
+        draw_obj(overlay, img_cor_points, triangles, x_center, y_center)
+    return overlay
+
+
+def draw_obj(image, vertices, triangles, x_center, y_center):
+    mask = np.zeros_like(image)
+    mask = mask.astype(float)
+    if y_center < mask.shape[0] and x_center < mask.shape[1]:
+        mask[int(y_center)][int(x_center)] = 1
+    
+    for t in triangles:
+        coord = np.array([vertices[t[0]][:2], vertices[t[1]][:2], vertices[t[2]][:2]], dtype=np.int32)
+        cv2.fillConvexPoly(mask, coord, (0,0,1))
+        
+    # get all the nonempty cells
+    mask = mask[:,:,2]
+    y_a, x_a = np.nonzero(mask)
+    for y, x in zip(y_a, x_a):
+        mask[y][x] = math.sqrt(abs(x_center - x) ** 2 + abs(y_center - y) ** 2) 
+                          
+    
+    m = float(mask.max())
+    og_mask = image[:,:,2]
+    mask[mask > 0] = 1. - (mask[mask > 0]/m)
+    og_mask[mask > og_mask]  = mask[mask > og_mask]
+    
+    
+    
