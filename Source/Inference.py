@@ -11,15 +11,11 @@ from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 
 from datasets.baseline import baseline
-from models.BaselineModel import MyUNet
+from models.BaselineModel import MyUNet, LargeUNet
+from models.AttentionModel import AttentionUnet
 from utils.preprocess import *
 import torch
-
-
-
-
-    
-
+from torch import nn
 
 
 PATH = '../data/'
@@ -61,9 +57,11 @@ parser.add_argument('--batch-size', type=float, default=4, metavar='SP',
 
 args = parser.parse_args()
 args.cuda = not args.no_cuda and torch.cuda.is_available()
-model = MyUNet(8, args)
-model.load_state_dict(torch.load('./saved_models/15.pth'))
-model.cuda().eval()
+
+model = AttentionUnet(8, args).cuda()
+model = nn.DataParallel(model)
+model.load_state_dict(torch.load('./saved_models/6.pth'))
+model.eval()
 
 
 
@@ -75,7 +73,7 @@ for idx in range(20):
     img, mask, regr, meta = dev_dataset[idx]
     output = model(torch.tensor(img[None]).cuda()).data.cpu().numpy()
     # print(output.shape)
-    coords_pred = extract_coords_cartesian(output[0], 0.2)
+    coords_pred = extract_coords(output[0], 0.001)
     coords_true = extract_coords(np.concatenate([mask[None], regr], 0))
     
     img = imread(train_images_dir.format(df_dev['ImageId'].iloc[idx]))
@@ -97,11 +95,4 @@ for idx in range(20):
     plot2 = canvas(False)
     plot2.bird(coords_true)
 
-
-
-    # fig, axes = plt.subplots(1, 2, figsize=(30,30))
-    # axes[0].set_title('Ground truth')
-    # axes[0].imshow(visualize(img, coords_true))
-    # axes[1].set_title('Prediction')
-    # axes[1].imshow(visualize(img, coords_pred))
 

@@ -6,7 +6,9 @@ import gc
 
 import argparse 
 from models.BaselineModel import MyUNet
+from models.AttentionModel import AttentionUnet
 import torch
+from torch import nn
 from utils.preprocess import *
 
 
@@ -42,19 +44,18 @@ def main():
 
     args = parser.parse_args()
     args.cuda = not args.no_cuda and torch.cuda.is_available()
-    model = MyUNet(8, args)
+
+    model = MyUNet(8, args).cuda()
+    # model = nn.DataParallel(model)
     model.load_state_dict(torch.load('./saved_models/15.pth'))
-    model.cuda().eval()
+    model.eval()
 
     cv2.namedWindow("Preview")
     cv2.namedWindow("Heatmap")
 
     cap = cv2.VideoCapture('./video/video3.mp4')
 
-    # if vc.isOpened(): # try to get the first frame
-    #     rval, frame = vc.read()
-    # else:
-    #     rval = False
+
     plot = canvas()
         
     while(cap.isOpened()):
@@ -70,8 +71,8 @@ def main():
         img = np.rollaxis(img,2,0)
 
         output = model(torch.tensor(img[None]).cuda()).data.cpu().numpy()
-        coords_pred = extract_coords_cartesian(output[0], 0.3)
-        # coords_pred = extract_coords(output[0], 0.05)
+        coords_pred = extract_coords_cartesian(output[0], 0.03)
+        # coords_pred = extract_coords(output[0], 0.0001)
 
         plot.bird(coords_pred)
 
@@ -81,6 +82,7 @@ def main():
         heatmap = heatmap[:, 11:-11]
         heatmap = cv2.applyColorMap(np.uint8(255 * heatmap), cv2.COLORMAP_JET)
         heatmap = cv2.resize(heatmap,(640,480))
+        
 
         img = visualize(frame, coords_pred)
         img = cv2.resize(img,(640,480))

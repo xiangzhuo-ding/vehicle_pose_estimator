@@ -128,11 +128,46 @@ def rotate(x, angle):
     x = x - (x + np.pi) // (2 * np.pi) * 2 * np.pi
     return x
 
-def extract_coords_cartesian(prediction, threshold=0.5):
+def get_peak(heatmap, threshold):
+    peak = np.zeros((heatmap.shape[0], heatmap.shape[1]))
+    for i in range(1,heatmap.shape[0]-1):
+        for j in range(1, heatmap.shape[1]-1):
+            if heatmap[i][j] > threshold:
+                
+                if heatmap[i][j] < heatmap[i-1][j-1]:
+                    continue
+
+                if heatmap[i][j] < heatmap[i][j-1]:
+                    continue
+
+                if heatmap[i][j] < heatmap[i+1][j-1]:
+                    continue
+
+                if heatmap[i][j] < heatmap[i-1][j]:
+                    continue
+
+                if heatmap[i][j] < heatmap[i+1][j]:
+                    continue
+
+                if heatmap[i][j] < heatmap[i-1][j+1]:
+                    continue
+
+                if heatmap[i][j] < heatmap[i][j+1]:
+                    continue
+
+                if heatmap[i][j] < heatmap[i+1][j+1]:
+                    continue
+
+                peak[i][j] = 1
+    return peak
+
+def extract_coords_cartesian(prediction, threshold=0.1):
     logits = prediction[0]
     logits_prob = torch.sigmoid(torch.tensor(logits)).numpy()
     regr_output = prediction[1:]
-    points = np.argwhere(logits_prob > threshold)
+    points = np.argwhere(get_peak(logits_prob, threshold) == 1)
+    print(points.shape)
+
     
     col_names = sorted(['x', 'y', 'z', 'yaw', 'pitch_sin', 'pitch_cos', 'roll'])
     coords = []
@@ -141,9 +176,25 @@ def extract_coords_cartesian(prediction, threshold=0.5):
         coords.append(_regr_back_cartesian(regr_dict))
         coords[-1]['confidence'] = 1 / (1 + np.exp(-logits[r, c]))
         coords[-1]['x'], coords[-1]['y'], coords[-1]['z'] = optimize_xy(r, c, coords[-1]['x'], coords[-1]['y'], coords[-1]['z'])
-    coords = clear_duplicates(coords)
+    # coords = clear_duplicates(coords)
     return coords
 
+def extract_coords(prediction, threshold=0.1):
+    logits = prediction[0]
+    logits_prob = torch.sigmoid(torch.tensor(logits)).numpy()
+    regr_output = prediction[1:]
+    points = np.argwhere(get_peak(logits, threshold) == 1)
+
+    
+    col_names = sorted(['r', 'theta', 'phi', 'yaw', 'pitch_sin', 'pitch_cos', 'roll'])
+    coords = []
+    for r, c in points:
+        regr_dict = dict(zip(col_names, regr_output[:, r, c]))
+        coords.append(_regr_back(regr_dict))
+        coords[-1]['confidence'] = 1 / (1 + np.exp(-logits[r, c]))
+        coords[-1]['x'], coords[-1]['y'], coords[-1]['z'] = optimize_xy(r, c, coords[-1]['x'], coords[-1]['y'], coords[-1]['z'])
+    # coords = clear_duplicates(coords)
+    return coords
 
 def _regr_back_cartesian(regr_dict):
     for name in ['x', 'y', 'z']:
@@ -155,22 +206,19 @@ def _regr_back_cartesian(regr_dict):
     regr_dict['pitch'] = np.arccos(pitch_cos) * np.sign(pitch_sin)
     return regr_dict
 
+def _regr_back(regr_dict):
+    regr_dict['r'] = regr_dict['r'] * 200
+    regr_dict['roll'] = rotate(regr_dict['roll'], -np.pi)
+    regr_dict['phi'] = rotate(regr_dict['phi'], np.pi/2)
+    regr_dict['x'], regr_dict['y'], regr_dict['z'] = spherical2cartesian(regr_dict['r'], regr_dict['theta'], regr_dict['phi'])
 
-def extract_coords(prediction, threshold=0.5):
-    logits = prediction[0]
-    logits_prob = torch.sigmoid(torch.tensor(logits)).numpy()
-    regr_output = prediction[1:]
-    points = np.argwhere(logits_prob > threshold)
-    
-    col_names = sorted(['r', 'theta', 'phi', 'yaw', 'pitch_sin', 'pitch_cos', 'roll'])
-    coords = []
-    for r, c in points:
-        regr_dict = dict(zip(col_names, regr_output[:, r, c]))
-        coords.append(_regr_back(regr_dict))
-        coords[-1]['confidence'] = 1 / (1 + np.exp(-logits[r, c]))
-        coords[-1]['x'], coords[-1]['y'], coords[-1]['z'] = optimize_xy(r, c, coords[-1]['x'], coords[-1]['y'], coords[-1]['z'])
-    coords = clear_duplicates(coords)
-    return coords
+    pitch_sin = regr_dict['pitch_sin'] / np.sqrt(regr_dict['pitch_sin']**2 + regr_dict['pitch_cos']**2)
+    pitch_cos = regr_dict['pitch_cos'] / np.sqrt(regr_dict['pitch_sin']**2 + regr_dict['pitch_cos']**2)
+    regr_dict['pitch'] = np.arccos(pitch_cos) * np.sign(pitch_sin)
+    return regr_dict
+
+
+
 
 
 
@@ -186,17 +234,15 @@ def optimize_xy(r, c, x0, y0, z0):
         IMG_SHAPE = (2710, 3384, 3)
 
         x, y, z = xyz
-        x, y = convert_3d_to_2d(x, y, z0)
+        x, y = convert_3d_to_2d(x, y, z)
         y, x = x, y
         x = (x - IMG_SHAPE[0] // 2) * IMG_HEIGHT / (IMG_SHAPE[0] // 2) / MODEL_SCALE
-        x = np.round(x).astype('int')
         y = (y + IMG_SHAPE[1] // 6) * IMG_WIDTH / (IMG_SHAPE[1] *4/3) / MODEL_SCALE
-        y = np.round(y).astype('int')
-        return (x-r)**2 + (y-c)**2
+        return max(0.2, (x-r)**2 + (y-c)**2)
     
     res = minimize(distance_fn, [x0, y0, z0], method='Powell')
     x_new, y_new, z_new = res.x
-    return x_new, y_new, z0
+    return x_new, y_new, z_new
 
 def clear_duplicates(coords):
     for c1 in coords:
@@ -245,16 +291,7 @@ def _regr_preprocess(regr_dict, flip=False):
     regr_dict.pop('z')
     return regr_dict
 
-def _regr_back(regr_dict):
-    regr_dict['r'] = regr_dict['r'] * 200
-    regr_dict['roll'] = rotate(regr_dict['roll'], -np.pi)
-    regr_dict['phi'] = rotate(regr_dict['phi'], np.pi/2)
-    regr_dict['x'], regr_dict['y'], regr_dict['z'] = spherical2cartesian(regr_dict['r'], regr_dict['theta'], regr_dict['phi'])
 
-    pitch_sin = regr_dict['pitch_sin'] / np.sqrt(regr_dict['pitch_sin']**2 + regr_dict['pitch_cos']**2)
-    pitch_cos = regr_dict['pitch_cos'] / np.sqrt(regr_dict['pitch_sin']**2 + regr_dict['pitch_cos']**2)
-    regr_dict['pitch'] = np.arccos(pitch_cos) * np.sign(pitch_sin)
-    return regr_dict
 
 def preprocess_image(img, flip=False):
     IMG_WIDTH = 1024
