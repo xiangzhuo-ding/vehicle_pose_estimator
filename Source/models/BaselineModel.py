@@ -4,6 +4,55 @@ import torch.nn as nn
 import torch.nn.functional as F
 from efficientnet_pytorch import EfficientNet
 
+class LargeUNet(nn.Module):
+    '''Mixture of previous classes'''
+    def __init__(self, n_classes, args):
+        super(LargeUNet, self).__init__()
+        self.args = args
+        self.base_model = EfficientNet.from_pretrained('efficientnet-b0')
+        
+        self.conv0 = double_conv(5, 64)
+        self.conv1 = double_conv(64, 128)
+        self.conv2 = double_conv(128, 512)
+        self.conv3 = double_conv(512, 1024)
+        
+        self.mp = nn.MaxPool2d(2)
+        
+        self.up1 = up(1282 + 1024, 512)
+        self.up2 = up(512 + 512, 256)
+        self.up3 = up(256 + 128, 128)
+        self.up4 = up(128 + 64, 64)
+        self.up5 = up(64 + 5, 5)
+        self.outc = nn.Conv2d(5, n_classes, 1)
+        
+    def forward(self, x):
+        batch_size = x.shape[0]
+        mesh1 = get_mesh(batch_size, x.shape[2], x.shape[3], self.args)
+        x0 = torch.cat([x, mesh1], 1)
+        x1 = self.mp(self.conv0(x0))
+        x2 = self.mp(self.conv1(x1))
+        x3 = self.mp(self.conv2(x2))
+        x4 = self.mp(self.conv3(x3))
+        IMG_WIDTH = 1024
+        IMG_HEIGHT = IMG_WIDTH // 16 * 5
+        x_center = x
+        feats = self.base_model.extract_features(x_center)
+        bg = torch.zeros([feats.shape[0], feats.shape[1], feats.shape[2], feats.shape[3] // 8])
+        if self.args.cuda:
+            bg = bg.cuda()
+        feats = torch.cat([bg, feats, bg], 3)
+        
+        # Add positional info
+        mesh2 = get_mesh(batch_size, feats.shape[2], feats.shape[3], self.args)
+        feats = torch.cat([feats, mesh2], 1)
+        
+        x = self.up1(feats, x4)
+        x = self.up2(x, x3)
+        x = self.up3(x, x2)
+        x = self.up4(x, x1)
+        x = self.up5(x, x0)
+        x = self.outc(x)
+        return x
 
 class MyUNet(nn.Module):
     '''Mixture of previous classes'''

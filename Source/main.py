@@ -1,6 +1,7 @@
 from datasets.pku import load_data
 import argparse 
 from models.BaselineModel import MyUNet
+from models.AttentionModel import AttentionUnet
 import torch
 from utils.trainer import *
 from torch import optim
@@ -12,15 +13,22 @@ def TrainModel(args):
     data = load_data()
     train_loader, dev_loader, test_loader = data.get_baseline(b_size=args.batch_size)
 
+    # model = MyUNet(args.output_size, args)
+    model = AttentionUnet(args.output_size, args)
+
     if args.load_model:
         print("Loading model: " +  args.model_name)
         model_path = args.model_path.format(args.model_name)
-        model = MyUNet(8, args)
         model.load_state_dict(torch.load(model_path))
 
     if args.cuda:
         print('\nGPU is ON!')
         model = model.cuda()
+
+        if args.gpus > 1:
+            model = torch.nn.DataParallel(model)
+
+
     
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
     exp_lr_scheduler = lr_scheduler.StepLR(optimizer, 
@@ -71,10 +79,14 @@ parser.add_argument('--model-name', type=str, default='',
                     help='load model name') 
 parser.add_argument('--start-epoch', type=int, default=0, metavar='SP',
                     help='starting epoch (default: 0)') 
-parser.add_argument('--batch-size', type=float, default=4, metavar='SP',
+parser.add_argument('--batch-size', type=int, default=4, metavar='BZ',
                     help='batch size (default: 4)')   
 parser.add_argument('--inference', action='store_true', default=False,
-                    help='run analysis for the validation set)')                 
+                    help='run analysis for the validation set)') 
+parser.add_argument('--output-size', type=float, default=8, metavar='OS',
+                    help='output-size (default: 8)')                  
+parser.add_argument('--gpus', type=int, default=2, metavar='gpu',
+                    help='starting epoch (default: 0)')   
 
 args = parser.parse_args()
 args.cuda = not args.no_cuda and torch.cuda.is_available()

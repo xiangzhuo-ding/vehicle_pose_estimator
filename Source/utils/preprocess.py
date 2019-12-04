@@ -2,6 +2,10 @@ import cv2
 import numpy as np
 from math import sin, cos
 from scipy.optimize import minimize
+import torch
+import matplotlib.pyplot as plt
+import matplotlib.patches as patches
+import matplotlib as mpl
 
 
 def imread(path, fast_mode=False):
@@ -76,8 +80,6 @@ def draw_line(image, points):
 def draw_points(image, points):
     for (p_x, p_y, p_z) in points:
         cv2.circle(image, (p_x, p_y), int(1000 / p_z), (0, 255, 0), -1)
-#         if p_x > image.shape[1] or p_y > image.shape[0]:
-#             print('Point', p_x, p_y, 'is out of image with shape', image.shape)
     return image
 
 def visualize(img, coords):
@@ -124,11 +126,44 @@ def rotate(x, angle):
     x = x - (x + np.pi) // (2 * np.pi) * 2 * np.pi
     return x
 
+def get_peak(heatmap, threshold):
+    peak = np.zeros((heatmap.shape[0], heatmap.shape[1]))
+    for i in range(1,heatmap.shape[0]-1):
+        for j in range(1, heatmap.shape[1]-1):
+            if heatmap[i][j] > threshold:
+                
+                if heatmap[i][j] < heatmap[i-1][j-1]:
+                    continue
 
-def extract_coords(prediction):
+                if heatmap[i][j] < heatmap[i][j-1]:
+                    continue
+
+                if heatmap[i][j] < heatmap[i+1][j-1]:
+                    continue
+
+                if heatmap[i][j] < heatmap[i-1][j]:
+                    continue
+
+                if heatmap[i][j] < heatmap[i+1][j]:
+                    continue
+
+                if heatmap[i][j] < heatmap[i-1][j+1]:
+                    continue
+
+                if heatmap[i][j] < heatmap[i][j+1]:
+                    continue
+
+                if heatmap[i][j] < heatmap[i+1][j+1]:
+                    continue
+
+                peak[i][j] = 1
+    return peak
+
+def extract_coords(prediction, threshold=0.1):
     logits = prediction[0]
+    # logits_prob = torch.sigmoid(torch.tensor(logits)).numpy()
     regr_output = prediction[1:]
-    points = np.argwhere(logits > 0)
+    points = np.argwhere(get_peak(logits, threshold) == 1)
     
     col_names = sorted(['x', 'y', 'z', 'yaw', 'pitch_sin', 'pitch_cos', 'roll'])
     coords = []
@@ -137,8 +172,9 @@ def extract_coords(prediction):
         coords.append(_regr_back(regr_dict))
         coords[-1]['confidence'] = 1 / (1 + np.exp(-logits[r, c]))
         coords[-1]['x'], coords[-1]['y'], coords[-1]['z'] = optimize_xy(r, c, coords[-1]['x'], coords[-1]['y'], coords[-1]['z'])
-    coords = clear_duplicates(coords)
+    # coords = clear_duplicates(coords)
     return coords
+
 
 def _regr_back(regr_dict):
     for name in ['x', 'y', 'z']:
@@ -163,17 +199,15 @@ def optimize_xy(r, c, x0, y0, z0):
         IMG_SHAPE = (2710, 3384, 3)
 
         x, y, z = xyz
-        x, y = convert_3d_to_2d(x, y, z0)
+        x, y = convert_3d_to_2d(x, y, z)
         y, x = x, y
         x = (x - IMG_SHAPE[0] // 2) * IMG_HEIGHT / (IMG_SHAPE[0] // 2) / MODEL_SCALE
-        x = np.round(x).astype('int')
         y = (y + IMG_SHAPE[1] // 6) * IMG_WIDTH / (IMG_SHAPE[1] *4/3) / MODEL_SCALE
-        y = np.round(y).astype('int')
-        return (x-r)**2 + (y-c)**2
+        return max(0.2, (x-r)**2 + (y-c)**2)
     
     res = minimize(distance_fn, [x0, y0, z0], method='Powell')
     x_new, y_new, z_new = res.x
-    return x_new, y_new, z0
+    return x_new, y_new, z_new
 
 def clear_duplicates(coords):
     for c1 in coords:
@@ -181,10 +215,12 @@ def clear_duplicates(coords):
         for c2 in coords:
             xyz2 = np.array([c2['x'], c2['y'], c2['z']])
             distance = np.sqrt(((xyz1 - xyz2)**2).sum())
-            if distance < 2:
+            if distance < 5:
                 if c1['confidence'] < c2['confidence']:
                     c1['confidence'] = -1
     return [c for c in coords if c['confidence'] > 0]
+
+
 
 def _regr_preprocess(regr_dict, flip=False):
     if flip:
@@ -197,17 +233,10 @@ def _regr_preprocess(regr_dict, flip=False):
     regr_dict['pitch_cos'] = cos(regr_dict['pitch'])
     regr_dict.pop('pitch')
     regr_dict.pop('id')
+
     return regr_dict
 
-def _regr_back(regr_dict):
-    for name in ['x', 'y', 'z']:
-        regr_dict[name] = regr_dict[name] * 100
-    regr_dict['roll'] = rotate(regr_dict['roll'], -np.pi)
-    
-    pitch_sin = regr_dict['pitch_sin'] / np.sqrt(regr_dict['pitch_sin']**2 + regr_dict['pitch_cos']**2)
-    pitch_cos = regr_dict['pitch_cos'] / np.sqrt(regr_dict['pitch_sin']**2 + regr_dict['pitch_cos']**2)
-    regr_dict['pitch'] = np.arccos(pitch_cos) * np.sign(pitch_sin)
-    return regr_dict
+
 
 def preprocess_image(img, flip=False):
     IMG_WIDTH = 1024
@@ -246,3 +275,49 @@ def get_mask_and_regr(img, labels, flip=False):
         mask = np.array(mask[:,::-1])
         regr = np.array(regr[:,::-1])
     return mask, regr
+
+class canvas(object):
+    def __init__(self, close = True):
+        self.fig = plt.figure(figsize=(8,8))
+        self.ax = self.fig.add_subplot(111)
+        self.t = 0
+        self.close = close
+
+    def bird(self, points_df, show = True):
+        self.t = not self.t
+        if self.close:
+            plt.cla()
+            plt.ion()
+        road_width = 20
+        road_xs = [-road_width, road_width, road_width, -road_width, -road_width]
+        road_ys = [0, 0, 500, 500, 0]
+
+
+        plt.axes().set_aspect(1)
+        plt.xlim(-50,50)
+        plt.ylim(0,120)
+
+        # View road
+        plt.fill(road_xs, road_ys, alpha=0.2, color='gray')
+        plt.plot([road_width/2,road_width/2], [-10*self.t,150], alpha=0.4, linewidth=4, color='white', ls='--')
+        plt.plot([-road_width/2,-road_width/2], [-10*self.t,150], alpha=0.4, linewidth=4, color='white', ls='--')
+        # View cars
+        x = np.array([point['x'] for point in points_df])
+        y = np.array([point['y'] for point in points_df])
+        z = np.array([point['z'] for point in points_df])
+        Y = np.sqrt(z**2 + y**2)
+        pitch = np.array([point['pitch'] for point in points_df])
+
+        for i in range(len(x)):
+            t = mpl.transforms.Affine2D().rotate_deg_around(x[i],Y[i],pitch[i]*180/np.pi) + self.ax.transData
+            rect = patches.Rectangle((x[i]-1,Y[i]-2), 2, 4, color="blue", alpha=0.50, transform = t)
+            self.ax.add_patch(rect)
+            arrow = patches.Arrow(x[i], Y[i], 3*np.cos(pitch[i]+np.pi/2), 3*np.sin(pitch[i]+np.pi/2), 1.5,color = "red")
+            self.ax.add_patch(arrow)
+
+        plt.plot([0,48], [0,60], [0,-48], [0,60], color = 'red', ls = '--')
+
+
+        plt.scatter(x, Y, color='red', s=10)
+        if show:
+            plt.show()

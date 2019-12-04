@@ -28,18 +28,11 @@ def train_model(model, optimizer, exp_lr_scheduler, epoch, train_loader, history
         output = model(img_batch)
 
         loss = FocalLoss(output, mask_batch, regr_batch)
-        extra_loss = EvaluationLoss(output, meta[0])
+        # extra_loss = EvaluationLoss(output, meta[0])
 
         if history is not None:
             history.loc[epoch + batch_idx / len(train_loader), 'train_loss'] = loss.data.cpu().numpy()
-            history.loc[epoch + batch_idx / len(train_loader), 'distance_loss'] = extra_loss['distance_loss']
-            history.loc[epoch + batch_idx / len(train_loader), 'yaw_loss'] = extra_loss['yaw_loss']
-            history.loc[epoch + batch_idx / len(train_loader), 'pitch_loss'] = extra_loss['pitch_loss']
-            history.loc[epoch + batch_idx / len(train_loader), 'roll_loss'] = extra_loss['roll_loss']
-            history.loc[epoch + batch_idx / len(train_loader), 'x_loss'] = extra_loss['x_loss']
-            history.loc[epoch + batch_idx / len(train_loader), 'y_loss'] = extra_loss['y_loss']
-            history.loc[epoch + batch_idx / len(train_loader), 'z_loss'] = extra_loss['z_loss']
-
+        
         loss.backward()
         
         optimizer.step()

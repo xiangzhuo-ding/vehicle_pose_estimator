@@ -1,15 +1,13 @@
 # folder
 data/
 saved_models/
+video/
 .vscode/
 __pycache__/
 
 # file
 .pyc
 .pth
-<<<<<<< HEAD
-.pt
-=======
 .pt
 .DS_Store
->>>>>>> origin/xiangzhuo
+
