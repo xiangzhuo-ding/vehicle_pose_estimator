@@ -8,7 +8,7 @@ from efficientnet_pytorch import EfficientNet
 class EAUNet(nn.Module):
     '''Mixture of previous classes'''
     def __init__(self, n_classes, args):
-        super(AttentionUnet, self).__init__()
+        super(EAUNet, self).__init__()
         self.args = args
         self.base_model = EfficientNet.from_pretrained('efficientnet-b0')
         
