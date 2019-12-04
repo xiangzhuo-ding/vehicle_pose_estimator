@@ -71,8 +71,7 @@ def main():
         img = np.rollaxis(img,2,0)
 
         output = model(torch.tensor(img[None]).cuda()).data.cpu().numpy()
-        coords_pred = extract_coords_cartesian(output[0], 0.03)
-        # coords_pred = extract_coords(output[0], 0.0001)
+        coords_pred = extract_coords(output[0], 0.0)
 
         plot.bird(coords_pred)
 
@@ -90,7 +89,6 @@ def main():
 
         cv2.imshow("Preview",img)
         cv2.imshow("Heatmap",heatmap)
-        # rval, frame = vc.read()
         key = cv2.waitKey(20)
         if key == 27: # exit on ESC
             break

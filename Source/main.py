@@ -1,6 +1,7 @@
 from datasets.pku import load_data
 import argparse 
 from models.BaselineModel import MyUNet
+from models.AttentionModel import AttentionUnet
 import torch
 from utils.trainer import *
 from torch import optim
@@ -12,7 +13,8 @@ def TrainModel(args):
     data = load_data()
     train_loader, dev_loader, test_loader = data.get_baseline(b_size=args.batch_size)
 
-    model = MyUNet(args.output_size, args)
+    # model = MyUNet(args.output_size, args)
+    model = AttentionUnet(args.output_size, args)
 
     if args.load_model:
         print("Loading model: " +  args.model_name)
