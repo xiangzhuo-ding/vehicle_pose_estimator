@@ -40,9 +40,9 @@ args = parser.parse_args()
 args.cuda = True
 print(args)
 
-model = MyUNet(8, args).cuda()
-# model = nn.DataParallel(model)
-model.load_state_dict(torch.load('./saved_models/15.pth'))
+model = AttentionUnet(8, args).cuda()
+model = nn.DataParallel(model)
+model.load_state_dict(torch.load('./saved_models/10.pth'))
 model.eval()
 
 
