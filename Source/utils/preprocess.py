@@ -309,6 +309,20 @@ def get_mask_and_regr(img, labels, flip=False):
         y = np.round(y).astype('int')
         if x >= 0 and x < IMG_HEIGHT // MODEL_SCALE and y >= 0 and y < IMG_WIDTH // MODEL_SCALE:
             mask[x, y] = 1
+
+            if x > 0:
+                mask[x - 1, y] = 0.5
+            
+            if x < (IMG_HEIGHT // MODEL_SCALE) - 1:
+                mask[x + 1, y] = 0.5
+            
+            if y > 0:
+                mask[x, y  - 1] = 0.5
+            
+            if y < (IMG_WIDTH // MODEL_SCALE) - 1:
+                mask[x, y  + 1] = 0.5
+
+
             regr_dict = _regr_preprocess(regr_dict, flip)
             regr[x, y] = [regr_dict[n] for n in sorted(regr_dict)]
     if flip:
