@@ -12,7 +12,7 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error
 
 from datasets.baseline import baseline
 from models.BaselineModel import MyUNet, LargeUNet
-from models.AttentionModel import AttentionUnet
+from models.AttentionModel import AttentionUnet, EAUNet
 from utils.preprocess import *
 import torch
 from torch import nn
@@ -40,9 +40,9 @@ args = parser.parse_args()
 args.cuda = True
 print(args)
 
-model = AttentionUnet(8, args).cuda()
+model = EAUNet(8, args).cuda()
 model = nn.DataParallel(model)
-model.load_state_dict(torch.load('./saved_models/10.pth'))
+model.load_state_dict(torch.load('./saved_models/15.pth'))
 model.eval()
 
 

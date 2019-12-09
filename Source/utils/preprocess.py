@@ -224,7 +224,7 @@ def optimize_xy(r, c, x0, y0, z0, flipped=False):
         y, x = x, y
         x = (x - IMG_SHAPE[0] // 2) * IMG_HEIGHT / (IMG_SHAPE[0] // 2) / MODEL_SCALE
         y = (y + IMG_SHAPE[1] // 6) * IMG_WIDTH / (IMG_SHAPE[1] * 4 / 3) / MODEL_SCALE
-        return max(0.2, (x-r)**2 + (y-c)**2) + max(0.4, slope_err)
+        return max(0.2, (x-r)**2 + (y-c)**2)#  + max(0.4, slope_err)
     
     res = minimize(distance_fn, [x0, y0, z0], method='Powell')
     x_new, y_new, z_new = res.x
@@ -335,7 +335,7 @@ class canvas(object):
 
         plt.axes().set_aspect(1)
         plt.xlim(-50,50)
-        plt.ylim(0,120)
+        plt.ylim(0,60)
 
         # View road
         plt.fill(road_xs, road_ys, alpha=0.2, color='gray')
@@ -352,8 +352,8 @@ class canvas(object):
             t = mpl.transforms.Affine2D().rotate_deg_around(x[i],Y[i],pitch[i]*180/np.pi) + self.ax.transData
             rect = patches.Rectangle((x[i]-1,Y[i]-2), 2, 4, color="blue", alpha=0.50, transform = t)
             self.ax.add_patch(rect)
-            arrow = patches.Arrow(x[i], Y[i], 3*np.cos(pitch[i]+np.pi/2), 3*np.sin(pitch[i]+np.pi/2), 1.5,color = "red")
-            self.ax.add_patch(arrow)
+            # arrow = patches.Arrow(x[i], Y[i], 3*np.cos(pitch[i]+np.pi/2), 3*np.sin(pitch[i]+np.pi/2), 1.5,color = "red")
+            # self.ax.add_patch(arrow)
 
         plt.plot([0,48], [0,60], [0,-48], [0,60], color = 'red', ls = '--')
 

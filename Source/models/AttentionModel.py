@@ -56,6 +56,9 @@ class EAUNet(nn.Module):
         u2 = self.up2.up(u1)
         x3 = self.Att2(g=u2, x=x3)
         u2 = self.up2(u2, x3)
+
+
+        
         output = self.outc(u2)
         return output
 
