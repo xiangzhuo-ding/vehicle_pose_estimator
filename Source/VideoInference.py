@@ -6,7 +6,7 @@ import gc
 
 import argparse 
 from models.BaselineModel import MyUNet
-from models.AttentionModel import AttentionUnet
+from models.AttentionModel import AttentionUnet, EAUNet
 import torch
 from torch import nn
 from utils.preprocess import *
@@ -45,8 +45,8 @@ def main():
     args = parser.parse_args()
     args.cuda = not args.no_cuda and torch.cuda.is_available()
 
-    model = MyUNet(8, args).cuda()
-    # model = nn.DataParallel(model)
+    model = EAUNet(8, args).cuda()
+    model = nn.DataParallel(model)
     model.load_state_dict(torch.load('./saved_models/15.pth'))
     model.eval()
 
@@ -71,7 +71,7 @@ def main():
         img = np.rollaxis(img,2,0)
 
         output = model(torch.tensor(img[None]).cuda()).data.cpu().numpy()
-        coords_pred = extract_coords(output[0], 0.0)
+        coords_pred = extract_coords(output[0], -1.)
 
         plot.bird(coords_pred)
 

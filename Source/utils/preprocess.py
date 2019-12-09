@@ -6,13 +6,8 @@ import torch
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import matplotlib as mpl
-
-
-def imread(path, fast_mode=False):
-    img = cv2.imread(path)
-    if not fast_mode and img is not None and len(img.shape) == 3:
-        img = np.array(img[:, :, ::-1])
-    return img
+import pandas as pd
+from sklearn.linear_model import LinearRegression
 
 def str2coords(s, names=['id', 'yaw', 'pitch', 'roll', 'x', 'y', 'z']):
     '''
@@ -28,6 +23,30 @@ def str2coords(s, names=['id', 'yaw', 'pitch', 'roll', 'x', 'y', 'z']):
         if 'id' in coords[-1]:
             coords[-1]['id'] = int(coords[-1]['id'])
     return coords
+
+PATH = '../data/'
+train = pd.read_csv(PATH + 'train.csv')
+points_df = pd.DataFrame()
+for col in ['x', 'y', 'z', 'yaw', 'pitch', 'roll']:
+    arr = []
+    for ps in train['PredictionString']:
+        coords = str2coords(ps)
+        arr += [c[col] for c in coords]
+    points_df[col] = arr
+
+
+xzy_slope = LinearRegression()
+X = points_df[['x', 'z']]
+y = points_df['y']
+xzy_slope.fit(X, y)
+
+def imread(path, fast_mode=False):
+    img = cv2.imread(path)
+    if not fast_mode and img is not None and len(img.shape) == 3:
+        img = np.array(img[:, :, ::-1])
+    return img
+
+
 
 def get_img_coords(s):
     # From camera.zip
@@ -191,23 +210,44 @@ def convert_3d_to_2d(x, y, z, fx = 2304.5479, fy = 2305.8757, cx = 1686.2379, cy
     # stolen from https://www.kaggle.com/theshockwaverider/eda-visualization-baseline
     return x * fx / z + cx, y * fy / z + cy
 
-def optimize_xy(r, c, x0, y0, z0):
+
+def optimize_xy(r, c, x0, y0, z0, flipped=False):
     def distance_fn(xyz):
         IMG_WIDTH = 1024
         IMG_HEIGHT = IMG_WIDTH // 16 * 5
         MODEL_SCALE = 8
         IMG_SHAPE = (2710, 3384, 3)
-
         x, y, z = xyz
+        xx = -x if flipped else x
+        slope_err = (xzy_slope.predict([[xx,z]])[0] - y)**2
         x, y = convert_3d_to_2d(x, y, z)
         y, x = x, y
         x = (x - IMG_SHAPE[0] // 2) * IMG_HEIGHT / (IMG_SHAPE[0] // 2) / MODEL_SCALE
-        y = (y + IMG_SHAPE[1] // 6) * IMG_WIDTH / (IMG_SHAPE[1] *4/3) / MODEL_SCALE
-        return max(0.2, (x-r)**2 + (y-c)**2)
+        y = (y + IMG_SHAPE[1] // 6) * IMG_WIDTH / (IMG_SHAPE[1] * 4 / 3) / MODEL_SCALE
+        return max(0.2, (x-r)**2 + (y-c)**2)#  + max(0.4, slope_err)
     
     res = minimize(distance_fn, [x0, y0, z0], method='Powell')
     x_new, y_new, z_new = res.x
     return x_new, y_new, z_new
+
+
+# def optimize_xy(r, c, x0, y0, z0):
+#     def distance_fn(xyz):
+#         IMG_WIDTH = 1024
+#         IMG_HEIGHT = IMG_WIDTH // 16 * 5
+#         MODEL_SCALE = 8
+#         IMG_SHAPE = (2710, 3384, 3)
+
+#         x, y, z = xyz
+#         x, y = convert_3d_to_2d(x, y, z)
+#         y, x = x, y
+#         x = (x - IMG_SHAPE[0] // 2) * IMG_HEIGHT / (IMG_SHAPE[0] // 2) / MODEL_SCALE
+#         y = (y + IMG_SHAPE[1] // 6) * IMG_WIDTH / (IMG_SHAPE[1] *4/3) / MODEL_SCALE
+#         return max(0.2, (x-r)**2 + (y-c)**2)
+    
+#     res = minimize(distance_fn, [x0, y0, z0], method='Powell')
+#     x_new, y_new, z_new = res.x
+#     return x_new, y_new, z_new
 
 def clear_duplicates(coords):
     for c1 in coords:
@@ -295,7 +335,7 @@ class canvas(object):
 
         plt.axes().set_aspect(1)
         plt.xlim(-50,50)
-        plt.ylim(0,120)
+        plt.ylim(0,60)
 
         # View road
         plt.fill(road_xs, road_ys, alpha=0.2, color='gray')
@@ -312,8 +352,8 @@ class canvas(object):
             t = mpl.transforms.Affine2D().rotate_deg_around(x[i],Y[i],pitch[i]*180/np.pi) + self.ax.transData
             rect = patches.Rectangle((x[i]-1,Y[i]-2), 2, 4, color="blue", alpha=0.50, transform = t)
             self.ax.add_patch(rect)
-            arrow = patches.Arrow(x[i], Y[i], 3*np.cos(pitch[i]+np.pi/2), 3*np.sin(pitch[i]+np.pi/2), 1.5,color = "red")
-            self.ax.add_patch(arrow)
+            # arrow = patches.Arrow(x[i], Y[i], 3*np.cos(pitch[i]+np.pi/2), 3*np.sin(pitch[i]+np.pi/2), 1.5,color = "red")
+            # self.ax.add_patch(arrow)
 
         plt.plot([0,48], [0,60], [0,-48], [0,60], color = 'red', ls = '--')
 

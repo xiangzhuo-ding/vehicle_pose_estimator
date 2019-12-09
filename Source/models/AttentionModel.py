@@ -5,6 +5,65 @@ import torch.nn.functional as F
 from efficientnet_pytorch import EfficientNet
 
 
+class EAUNet(nn.Module):
+    '''Mixture of previous classes'''
+    def __init__(self, n_classes, args):
+        super(EAUNet, self).__init__()
+        self.args = args
+        self.base_model = EfficientNet.from_pretrained('efficientnet-b0')
+        
+        self.conv0 = double_conv(3, 64)
+        self.conv1 = double_conv(64, 128)
+        self.conv2 = double_conv(128, 256)
+        self.conv3 = double_conv(256, 512)
+        self.conv4 = double_conv(512, 1024)
+
+        self.mp = nn.MaxPool2d(2)
+        
+        self.Att1 = Attention_block(F_g=1280, F_l = 1024, F_int=512)
+        self.Att2 = Attention_block(F_g=512, F_l = 512, F_int=256)
+
+        self.up1 = up(1280 + 1024, 512)
+        self.up2 = up(512 + 512, 256)
+        self.outc = nn.Conv2d(256, n_classes, 1)
+
+
+        
+    def forward(self, x):
+        batch_size = x.shape[0]
+        x1 = self.mp(self.conv0(x))
+        x2 = self.mp(self.conv1(x1))
+        x3 = self.conv3(self.mp(self.conv2(x2)))
+        x4 = self.conv4(self.mp(x3))
+
+        IMG_WIDTH = 1024
+        IMG_HEIGHT = IMG_WIDTH // 16 * 5
+        x_center = x[:, :, :, IMG_WIDTH // 8: -IMG_WIDTH // 8]
+        feats = self.base_model.extract_features(x_center)   
+        bg = torch.zeros([feats.shape[0], feats.shape[1], feats.shape[2], feats.shape[3] // 8])
+        if self.args.cuda:
+            bg = bg.cuda()
+        feats = torch.cat([bg, feats, bg], 3)
+        
+        # Add positional info
+        p1d = (1, 1)
+        feats = F.pad(feats, p1d, "constant", 0)
+        u1 = self.up1.up(feats)
+        x4 = self.Att1(g=u1, x=x4)
+        u1 = self.up1(u1, x4)
+
+        # Adding another attention
+        u2 = self.up2.up(u1)
+        x3 = self.Att2(g=u2, x=x3)
+        u2 = self.up2(u2, x3)
+
+
+        
+        output = self.outc(u2)
+        return output
+
+
+
 class AttentionUnet(nn.Module):
     '''Mixture of previous classes'''
     def __init__(self, n_classes, args):
