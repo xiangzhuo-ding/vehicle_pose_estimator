@@ -17,9 +17,6 @@
            directly from full images in one evaluation
  
 
-What is negative mining techniques?
-What is upsampleing?
-
 libornovax master thesis code summary 
 
 Input 
